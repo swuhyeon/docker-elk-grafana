@@ -1,0 +1,2 @@
+- pipeline.id: ssh-auth-pipeline
+  path.config: "/usr/share/logstash/pipeline/ssh-auth.conf"
