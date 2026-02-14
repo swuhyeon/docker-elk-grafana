@@ -23,11 +23,37 @@ pipeline {
       }
     }
 
+    // Jenkins 워크스페이스에 entrypoint.sh가 실제로 있는지 확인
+    stage('Debug workspace (ssh-server files)') {
+      steps {
+        bat '''
+          cd /d "%WORKSPACE%"
+          echo ==== PWD ====
+          cd
+          echo ==== List ssh-server directory ====
+          dir ssh-server
+          echo ==== Find entrypoint in ssh-server ====
+          dir ssh-server | findstr /i entrypoint
+        '''
+      }
+    }
+
     stage('Validate compose') {
       steps {
         bat '''
           cd /d "%WORKSPACE%"
           docker compose config
+        '''
+      }
+    }
+
+    // ssh-server 이미지를 단독 빌드하고, 이미지 안에 /entrypoint.sh가 있는지 확인
+    stage('Debug docker build (ssh-server entrypoint)') {
+      steps {
+        bat '''
+          cd /d "%WORKSPACE%"
+          docker compose build --no-cache ssh-server
+          docker run --rm docker-elk-grafana-ssh-server:latest ls -al /entrypoint.sh
         '''
       }
     }
