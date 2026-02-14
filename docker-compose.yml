@@ -1,0 +1,112 @@
+version: "3.9"
+
+services:
+  ssh-server:
+    build: ./ssh-server
+    container_name: ssh-server
+    ports:
+      - "2222:22"
+    volumes:
+      - ./logs:/var/log
+    env_file:
+      - ./.env
+    networks:
+      - elk-net
+
+  ssh-login:
+    build: ./ssh-login
+    container_name: ssh-login
+    depends_on:
+      - ssh-server
+    env_file:
+      - ./.env
+    networks:
+      - elk-net
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - elk-net
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.15.0
+    container_name: logstash
+    volumes:
+      - ./logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro
+      - ./logstash/ssh-auth.conf:/usr/share/logstash/pipeline/ssh-auth.conf:ro
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5044:5044"
+    networks:
+      - elk-net
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+    networks:
+      - elk-net
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.15.0
+    container_name: filebeat
+    user: root
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./logs:/var/log:ro
+    command: [
+      "filebeat",
+      "-e",
+      "-strict.perms=false",
+      "-c", "/usr/share/filebeat/filebeat.yml"
+    ]
+    depends_on:
+      - logstash
+      - ssh-server
+    networks:
+      - elk-net
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: grafana
+    depends_on:
+      - elasticsearch
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana:/provisioning-src:ro
+    networks:
+      - elk-net
+    user: "0"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources /etc/grafana/provisioning/dashboards /var/lib/grafana/dashboards
+        cp /provisioning-src/datasource.yml /etc/grafana/provisioning/datasources/datasource.yml
+        cp /provisioning-src/dashboards.yml /etc/grafana/provisioning/dashboards/dashboards.yml
+        cp /provisioning-src/*.json /var/lib/grafana/dashboards/ 2>/dev/null || true
+        exec /run.sh
+
+volumes:
+  es-data:
+  grafana-data:
+
+networks:
+  elk-net:
