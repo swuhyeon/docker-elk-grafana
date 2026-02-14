@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: elasticsearch
+    uid: dfd4vd0zdqq68e
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    isDefault: true
+    jsonData:
+      index: "ssh-auth-*"
+      timeField: "@timestamp"
+      esVersion: 8
