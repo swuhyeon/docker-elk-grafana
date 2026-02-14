@@ -1,0 +1,9 @@
+Port 22
+SyslogFacility AUTH
+LogLevel VERBOSE
+
+PermitRootLogin no
+PasswordAuthentication yes
+PubkeyAuthentication no
+
+UsePAM yes
